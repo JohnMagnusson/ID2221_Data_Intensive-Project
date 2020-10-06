@@ -1,3 +1,5 @@
+from __future__ import division  # Override python 2.x division that produces int to 3.x which uses floats
+
 import json
 import math
 
@@ -9,7 +11,7 @@ from Utils import *
 class Client:
     def __init__(self):
         self.apiKey = "2caa284366c7ebc9340e5ce55bbf16de4fae6aa49b2b0ec93eac7c2ff385af95"
-        self.endpoint = url = "https://min-api.cryptocompare.com/data/v2/"
+        self.endpoint = "https://min-api.cryptocompare.com/data/v2/"
         self.dataWindowSize = 2000  # 2000 is the max the API allows
 
     def getHistoricalDataBetween(self, requestParameters, startTime, endTime):
@@ -38,20 +40,17 @@ class Client:
 
         intTimePrefix = self.timePrefixToInteger(timePrefix)
         nrWindows = int(math.ceil((tsEndTime - tsStartTime) / (intTimePrefix * self.dataWindowSize)))
-        part1 = tsEndTime - tsStartTime
-        part2 = intTimePrefix * self.dataWindowSize
-        part3 = part1 / part2
 
         upToBatches = []
         for i in range(nrWindows):
             ts = tsEndTime - (i * intTimePrefix * self.dataWindowSize)
             if i == nrWindows - 1 and len(
                     upToBatches) == 0:  # last one is special case where we want to limit the windows size
-                windowSize = int(math.ceil(
-                    (tsEndTime - tsStartTime) / intTimePrefix))  # We round up, rather take to much than to little
+                # We round down as that batch wont ce computed by the API yet
+                windowSize = int(math.floor((tsEndTime - tsStartTime) / intTimePrefix))
             elif i == nrWindows - 1:
-                # We round up, rather take to much then to little
-                windowSize = int(math.ceil((upToBatches[-1][0] - tsStartTime) / intTimePrefix)) - self.dataWindowSize
+                # We round down as that batch wont ce computed by the API yet
+                windowSize = int(math.floor((upToBatches[-1][0] - tsStartTime) / intTimePrefix)) - self.dataWindowSize
             else:
                 windowSize = self.dataWindowSize
 

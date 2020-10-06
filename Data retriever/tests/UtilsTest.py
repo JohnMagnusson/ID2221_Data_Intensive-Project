@@ -30,6 +30,12 @@ class MyTestCase(unittest.TestCase):
         correctConvert = datetime.strptime("2018-11-29 12:55:26", '%Y-%m-%d %H:%M:%S')
         self.assertEqual(correctConvert, convertedTime)
 
+    def test_timeStampToDateTime_2(self):
+        timestamp = 1167609600.0
+        convertedTime = timeStampToDateTime(timestamp)
+        correctConvert = datetime.strptime("2007-01-01 00:00:00", '%Y-%m-%d %H:%M:%S')
+        self.assertEqual(correctConvert, convertedTime)
+
 
 if __name__ == '__main__':
     unittest.main()

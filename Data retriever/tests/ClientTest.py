@@ -4,22 +4,28 @@ from Client import *
 
 client = Client()
 
-# Todo fix the problem of having inconsistent conversion between time! WTF!?=#"ODJNAKJFNKLJFJLNK
-
 class MyTestCase(unittest.TestCase):
-
-    def test_something(self):
-        self.assertEqual(True, True)
-
-    def test_getUpToTimeStampsDay(self):
-        startTime = "2018-10-29 13:55:26"
+    # Following tests controls that the windowing of timeStamps to use to the API adds up correctly
+    def test_getUpToTimeStampsDaySmallTimeDifference(self):
+        startTime = "2018-10-27 18:55:26"
         endTime = "2018-10-29 18:55:26"
         timePrefix = "day"
         windows = client.getUpToTimeStamps(startTime, endTime, timePrefix)
-        print windows
-        self.assertEqual(len(windows), 1)
 
-    def test_getUpToTimeStampsHour(self):
+        correctList = []
+        correctList.append((1540839326.0, 2))
+        self.assertEqual(correctList, windows)
+
+    def test_getUpToTimeStampsDayBigTimeDifference(self):
+        startTime = "2013-10-27 18:55:26"
+        endTime = "2020-10-29 18:55:26"
+        timePrefix = "day"
+        windows = client.getUpToTimeStamps(startTime, endTime, timePrefix)
+
+        self.assertEqual(2, len(windows))
+        self.assertEqual((1431197726.0, 559), windows[-1])
+
+    def test_getUpToTimeStampsHourSmallTimeDifference(self):
         startTime = "2018-10-28 13:55:26"
         endTime = "2018-10-28 18:55:26"
         timePrefix = "hour"
@@ -38,8 +44,24 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(18, len(windows))
         self.assertEqual((1479516926.0, 491), windows[-1])
 
-    def test_getUpToTimeStampsMinute(self):
-        pass
+    def test_getUpToTimeStampsMinuteSmallTimeDifference(self):
+        startTime = "2018-10-28 18:50:00"
+        endTime = "2018-10-28 18:55:30"
+        timePrefix = "minute"
+        windows = client.getUpToTimeStamps(startTime, endTime, timePrefix)
+
+        correctList = []
+        correctList.append((1540752930.0, 5))
+        self.assertEqual(correctList, windows)
+
+    def test_getUpToTimeStampsMinuteBigTimeDifference(self):
+        startTime = "2012-10-29 13:55:45"
+        endTime = "2020-03-05 16:55:26"
+        timePrefix = "minute"
+        windows = client.getUpToTimeStamps(startTime, endTime, timePrefix)
+
+        self.assertEqual(1933, len(windows))
+        self.assertEqual((1351587326.0, 1139), windows[-1])
 
 
 if __name__ == '__main__':

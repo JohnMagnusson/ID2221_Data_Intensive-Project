@@ -1,17 +1,16 @@
-import time
+# import time
+import calendar
 from datetime import datetime
 
 
 def stringToTimeStamp(timeStr):
     """
-    Important to know that it returns the time in UNIX UTC format!
+    The conversion assume the input is in UTC and the output will also be in UTC
     :param timeStr: String in format of year-month-day hour:minute:second
     :return: Timestamp in unix format in UTC
     """
-    timeStr = timeStr + "-UTC"
-    date_object = datetime.strptime(timeStr, '%Y-%m-%d %H:%M:%S-%Z')
-    return time.mktime(date_object.timetuple())# + 7200  # Add offset because we live in Sweden an convert it to UTC.
-    # Please someone save me from this date/time hell
+    date_object = datetime.strptime(timeStr, '%Y-%m-%d %H:%M:%S')
+    return calendar.timegm(date_object.timetuple())
 
 
 def timeStampToDateTime(timeStamp):
