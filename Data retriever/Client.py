@@ -68,6 +68,7 @@ class Client:
         else:
             raise Exception("Invalid timePrefix")
 
+    # Todo fix that we can do between period. That is ToTS works
     def getHistoricalData(self, timePrefix="hour", cryptoCurrency="BTC", fiatCurrency="USD", nrRecordsToGet="10",
                           toTimeStamp=""):
         finalUrl = self.endpoint + "histo" + timePrefix + "?fsym=" + cryptoCurrency + "&tsym=" + fiatCurrency + "&limit=" + nrRecordsToGet
@@ -76,9 +77,4 @@ class Client:
         # response = requests.get(finalUrl, auth=("authorization", self.apiKey))
         response = requests.get(finalUrl)
         jData = json.loads(response.content)
-        print("Response: ", response)
-        print("The response contains {0} properties".format(len(jData)))
-        print("\n")
-        for key in jData:
-            print key + " : " + str(jData[key])
-        return 0
+        return jData
