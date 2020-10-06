@@ -63,6 +63,26 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(1933, len(windows))
         self.assertEqual((1351587326.0, 1139), windows[-1])
 
+    def test_getHistoricalDataWithTimeStamp(self):
+        nrRecordsToGet = 3
+        timeStamp = 1543496126.0
+        data = client.getHistoricalData(timePrefix="hour", cryptoCurrency="BTC", fiatCurrency="USD", toTimeStamp=timeStamp, nrRecordsToGet=nrRecordsToGet)
+        self.assertFalse(data[u'HasWarning'])
+        self.assertEqual(data[u'Type'], 100)
+        self.assertEqual(data[u'Response'], u'Success')
+        self.assertEqual(data[u'Response'], u'Success')
+        self.assertEqual(len(data[u'Data'][u'Data']), nrRecordsToGet)
+        isInTimeScope = data[u'Data'][u'TimeTo'] <= timeStamp    # We check that the latest retreived timeStamp is inside the time scope have given
+        self.assertTrue(isInTimeScope)
+
+    def test_getHistoricalDataWithoutTimeStamp(self):
+        nrRecordsToGet = 3
+        data = client.getHistoricalData(timePrefix="hour", cryptoCurrency="BTC", fiatCurrency="USD", nrRecordsToGet=nrRecordsToGet)
+        self.assertFalse(data[u'HasWarning'])
+        self.assertEqual(data[u'Type'], 100)
+        self.assertEqual(data[u'Response'], u'Success')
+        self.assertEqual(data[u'Response'], u'Success')
+        self.assertEqual(len(data[u'Data'][u'Data']), nrRecordsToGet)
 
 if __name__ == '__main__':
     unittest.main()

@@ -2,6 +2,7 @@ from __future__ import division  # Override python 2.x division that produces in
 
 import json
 import math
+from tqdm import tqdm
 
 import requests
 
@@ -16,11 +17,14 @@ class Client:
 
     def getHistoricalDataBetween(self, requestParameters, startTime, endTime):
         # Divide the number of toTimeStamp by dividing by the time/(timePrefix * 2000)
-        listOfTimeBatches = self.getUpToTimeStamps(startTime, endTime, requestParameters.timePrefix)
+        windowsSettings = self.getUpToTimeStamps(startTime, endTime, requestParameters.timePrefix)
         dataBataches = []
-        for batch in listOfTimeBatches:
+
+        print("Getting data with the set window")
+        for windowSetting in tqdm(windowsSettings):
             dataBataches.append(self.getHistoricalData(requestParameters.timePrefix, requestParameters.cryptoCurrency,
-                                                       requestParameters.fiatCurrency, "5", batch))
+                                                       requestParameters.fiatCurrency, windowSetting[0], windowSetting[1]))
+        print("Done fetching data!")
         return dataBataches
 
     def getUpToTimeStamps(self, startTime, endTime, timePrefix):
@@ -67,10 +71,10 @@ class Client:
         else:
             raise Exception("Invalid timePrefix")
 
-    # Todo fix that we can do between period. That is ToTS works
-    def getHistoricalData(self, timePrefix="hour", cryptoCurrency="BTC", fiatCurrency="USD", nrRecordsToGet="10",
-                          toTimeStamp=""):
-        finalUrl = self.endpoint + "histo" + timePrefix + "?fsym=" + cryptoCurrency + "&tsym=" + fiatCurrency + "&limit=" + nrRecordsToGet
+    def getHistoricalData(self, timePrefix="hour", cryptoCurrency="BTC", fiatCurrency="USD", toTimeStamp=-1, nrRecordsToGet=10):
+        finalUrl = self.endpoint + "histo" + timePrefix + "?fsym=" + cryptoCurrency + "&tsym=" + fiatCurrency + "&limit=" + str(nrRecordsToGet-1)   # We do nrRecordsToGet-1 because they start at 0
+        if toTimeStamp != -1:
+            finalUrl = finalUrl + "&toTs=" + str(toTimeStamp)
 
         # auth=HTTPDigestAuth("authorization", self.apiKey)
         # response = requests.get(finalUrl, auth=("authorization", self.apiKey))
