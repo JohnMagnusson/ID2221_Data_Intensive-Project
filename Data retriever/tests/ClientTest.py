@@ -84,5 +84,6 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(data[u'Response'], u'Success')
         self.assertEqual(len(data[u'Data'][u'Data']), nrRecordsToGet)
 
+
 if __name__ == '__main__':
     unittest.main()

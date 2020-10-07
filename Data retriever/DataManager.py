@@ -5,7 +5,7 @@ import pandas as pd
 
 def saveData(dataList, fileName, format="csv"):
     def saveAsJson(data, fileName):
-        with open(fileName + ".txt", "w") as outfile:
+        with open("../Datasets/" + fileName + ".txt", "w") as outfile:
             json.dump(data, outfile)
 
     def saveAsCsv(data, fileName):
