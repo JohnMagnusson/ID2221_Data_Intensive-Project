@@ -30,7 +30,7 @@ class Client:
 
         print("Getting data with the set window")
         for windowSetting in tqdm(windowsSettings):
-            dataBatches.append(self.getHistoricalData(requestParameters.timePrefix, requestParameters.cryptoCurrency,
+            dataBatches.extend(self.getHistoricalData(requestParameters.timePrefix, requestParameters.cryptoCurrency,
                                                        requestParameters.fiatCurrency, windowSetting[0], windowSetting[1]))
         print("Done fetching data!")
         return dataBatches
@@ -108,7 +108,14 @@ class Client:
         isProcessedCorrectly, errorMessage = self.validateGoodHttpResponse(response.status_code)
         if not isProcessedCorrectly:
             raise Exception(errorMessage)
-        return json.loads(response.content)    # Converts data to JSON
+        response_data = self.getDataObjects(response.content)
+        return response_data
+
+
+    def getDataObjects(self, content):
+        data_objects = json.loads(content)['Data']['Data'] # Converts data to MAP
+        return data_objects
+
 
     def validateGoodHttpResponse(self, status_code):
         """
