@@ -11,12 +11,15 @@
 # - find out the data that is working
 # - sort data
 
-import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import tensorflow as tf
+from tensorflow.keras.layers import LSTM, Dropout, Dense
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM
+import numpy as np
+
+physical_devices = tf.config.list_physical_devices('GPU')
+tf.config.experimental.set_memory_growth(physical_devices[0], enable=True)
 
 
 def read_data(file_loc, ratio=None, validation_size=None):
@@ -41,6 +44,7 @@ def read_data(file_loc, ratio=None, validation_size=None):
 
     print(data.head())
     print(data.dtypes)
+    data = data.drop(["conversionSymbol", "conversionType"], axis=1)
 
     if ratio is not None:
         training_ratio = int(ratio * data.shape[0])
@@ -67,17 +71,38 @@ def plot_time_series(data, time_range, variable):
     plt.show()
 
 
-def lstm_prediction(data):
+def create_lstm_model(data):
     model = Sequential()
-    model.add(LSTM)
-    return 1
+    model.add(LSTM(units=50, return_sequences=True, input_shape=(data.shape[1:])))
+    model.add(Dropout(0.2))
+
+    model.add(LSTM(units=50, return_sequences=True))
+    model.add(Dropout(0.2))
+
+    model.add(LSTM(units=50, return_sequences=True))
+    model.add(Dropout(0.2))
+
+    model.add(LSTM(units=50))
+    model.add(Dropout(0.2))
+
+    model.add(Dense(units=1))
+    model.compile(optimizer='adam', loss='mean_squared_error', metrics=["accuracy"])
+    return model
 
 
 def main():
     df = read_data("../PreProcessing/data_cleaned/part-00000", ratio=2 / 3, validation_size=10)
-    plot_time_series(data=df['complete'], time_range=500, variable=['high'])
+    #plot_time_series(data=df['complete'], time_range=500, variable=['high'])
+    x_train, y_train = data_labeling(data=df["train"])
+    model = create_lstm_model(data=x_train)
+    model.fit(x_train, y_train, epochs=500, batch_size=32)
+
+def data_labeling(data):
+    x_data = data[:-1].to_numpy()
+    y_data = data[1:]
+    x_data = np.reshape(x_data, (x_data.shape[0], x_data.shape[1], 1))
+    return x_data, y_data["high"].to_numpy()
 
 
 if __name__ == "__main__":
     main()
-
