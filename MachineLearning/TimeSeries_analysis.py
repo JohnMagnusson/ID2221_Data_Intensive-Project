@@ -6,10 +6,10 @@
 # PYTHON: finish LSTM
 #
 # SCALA:
-# - create new variable mid_price - (maybe some transformation - normalization / log )
-# - change date variable to actual date
+# - create new variable mid_price - (maybe some transformation - normalization / log / ...) - OK
+# - change date variable to actual date - DROPPED THE IDEA
 # - find out the data that is working
-# - sort data
+# - sort data - OK
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -18,8 +18,9 @@ from tensorflow.keras.layers import LSTM, Dropout, Dense
 from tensorflow.keras.models import Sequential
 import numpy as np
 
-physical_devices = tf.config.list_physical_devices('GPU')
-tf.config.experimental.set_memory_growth(physical_devices[0], enable=True)
+
+# physical_devices = tf.config.list_physical_devices('GPU')
+# tf.config.experimental.set_memory_growth(physical_devices[0], enable=True)
 
 
 def read_data(file_loc, ratio=None, validation_size=None):
@@ -39,12 +40,16 @@ def read_data(file_loc, ratio=None, validation_size=None):
                                         'volumefrom',
                                         'close',
                                         'open',
-                                        'conversionType'
+                                        'conversionType',
+                                        'midPrice',
+                                        'midPriceNorm',
+                                        'empty'
                                     ]))
 
     print(data.head())
     print(data.dtypes)
-    data = data.drop(["conversionSymbol", "conversionType"], axis=1)
+    data = data.drop(
+        ["conversionSymbol", "volumeto", "low", "close", "open", "conversionType", "midPrice", "high", "empty"], axis=1)
 
     if ratio is not None:
         training_ratio = int(ratio * data.shape[0])
@@ -92,16 +97,17 @@ def create_lstm_model(data):
 
 def main():
     df = read_data("../PreProcessing/data_cleaned/part-00000", ratio=2 / 3, validation_size=10)
-    #plot_time_series(data=df['complete'], time_range=500, variable=['high'])
+    # plot_time_series(data=df['complete'], time_range=500, variable=['high'])
     x_train, y_train = data_labeling(data=df["train"])
     model = create_lstm_model(data=x_train)
     model.fit(x_train, y_train, epochs=500, batch_size=32)
+
 
 def data_labeling(data):
     x_data = data[:-1].to_numpy()
     y_data = data[1:]
     x_data = np.reshape(x_data, (x_data.shape[0], x_data.shape[1], 1))
-    return x_data, y_data["high"].to_numpy()
+    return x_data, y_data["midPriceNorm"].to_numpy()
 
 
 if __name__ == "__main__":
