@@ -1,6 +1,16 @@
 # https://www.datacamp.com/community/tutorials/lstm-python-stock-market
 # packages and libraries
 
+# TODO:
+#
+# PYTHON: finish LSTM
+#
+# SCALA:
+# - create new variable mid_price - (maybe some transformation - normalization / log )
+# - change date variable to actual date
+# - find out the data that is working
+# - sort data
+
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -10,6 +20,12 @@ from tensorflow.keras.layers import LSTM
 
 
 def read_data(file_loc, ratio=None, validation_size=None):
+    """
+    :param file_loc: path of the file in the computer
+    :param ratio: ratio between training and testing data
+    :param validation_size: how many samples will be used for the validation dataset
+    :return: a dictionary of datasets with the complete one, training, testing and validation
+    """
     data = pd.DataFrame(pd.read_csv(file_loc, header=None,
                                     names=[
                                         'conversionSymbol',
@@ -64,3 +80,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
