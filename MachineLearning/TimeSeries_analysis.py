@@ -4,29 +4,33 @@
 # TODO:
 #
 # PYTHON: finish LSTM
-# Use 72 TimeStamps in the lstm to predict future value
+# Use 72 TimeStamps in the lstm to predict future value - OK
 # Look over model, we can probably add more (batchNorm, more units, layers, ...)
+
 # SCALA:
 # Clean raw API response in Scala (once everything works)
-from collections import deque
 
+
+from collections import deque
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 from tensorflow.keras.layers import LSTM, Dropout, Dense, BatchNormalization
 from tensorflow.keras.models import Sequential
+from tqdm import tqdm
 import random
 
-physical_devices = tf.config.list_physical_devices('GPU')
-tf.config.experimental.set_memory_growth(physical_devices[0], enable=True)
+
+# physical_devices = tf.config.list_physical_devices('GPU')
+# tf.config.experimental.set_memory_growth(physical_devices[0], enable=True)
 
 
-def read_data(file_loc, feature, ratio=None, validation_size=None):
+def read_data(file_loc, feature, ratio=None, testing_size=None):
     """
     :param file_loc: path of the file in the computer
     :param ratio: ratio between training and testing data
-    :param validation_size: how many samples will be used for the validation dataset
+    :param testing_size: how many samples will be used for the testing dataset
     :return: a dictionary of datasets with the complete one, training, testing and validation
     """
     data = pd.DataFrame(pd.read_csv(file_loc, header=None,
@@ -53,50 +57,68 @@ def read_data(file_loc, feature, ratio=None, validation_size=None):
     # data = data.drop(
     #     ["conversionSymbol", "volumeto", "low", "close", "open", "conversionType", "midPrice", "empty", feature], axis=1)
 
-    data = data[['time', 'volumefromNorm', 'volumetoNorm',  feature]]
+    data = data[['time', 'volumefromNorm', 'volumetoNorm', feature]]
     data['time'] = data['time'].str[1:].astype(float)
 
     print(data.head())
     print(data.dtypes)
 
-    window_length = 72
     if ratio is not None:
         training_ratio = int(ratio * data.shape[0])
         training_data = data[:training_ratio]
         # training_data = createTimeWindows(data[:training_ratio], window_length=window_length)
-        testing_data = data[training_ratio:data.shape[0] - validation_size]
-        validation_data = data[data.shape[0] - validation_size:]
+        validation_data = data[training_ratio:data.shape[0] - testing_size]
+        testing_data = data[data.shape[0] - testing_size:]
         return {'complete': data, 'train': training_data, 'test': testing_data, 'validation': validation_data}
 
     else:
         return {'complete': data}
 
-def createTimeWindows(data, window_length=72):
+
+def createTimeWindows(data, timestamp_size):
     """
     We should consider the the previous data when predicting. In this case with a window_length size
-    :param window_length: How many previous data to consider
-    :param data:
+    :param timestamp_size: How many previous data to consider
+    :param data: training data
     :return: (nr_data_samples-window_length, window_length, nr_features)
     """
     #
+    shape = (data.shape[0] - timestamp_size + 1, timestamp_size, data.shape[1])
+    t_minus_window_data = np.empty(shape)
+    timestamp_data = deque(maxlen=timestamp_size)
 
-    # sequential_data = []
-    # prev_days = deque(maxlen=window_length)
-    #
-    # for i in data.values:  # iterate over the values
-    #     prev_days.append([n for n in i[:-1]])  # store all but the target
-    #     if len(prev_days) == window_length:
-    #         sequential_data.append([np.array(prev_days), i[-1]])
-    #
-    # random.shuffle(sequential_data)  # shuffle for good measure.
+    counter = 0
+    for i in data.values:  # iterate over the values
+        timestamp_data.append([n for n in i])  # store all but the target
+        if len(timestamp_data) == timestamp_size:
+            t_minus_window_data[counter] = np.array(timestamp_data)
+            counter += 1
 
-    # todo add data_labelling to get labels also
+    # random.shuffle(t_minus_window_data)  # shuffle for good measure.
 
-def data_labeling(data, feature):
-    x_data = data[:-1].to_numpy()
-    y_data = data[1:]
-    x_data = np.reshape(x_data, (x_data.shape[0], x_data.shape[1], 1))
+    # todo: add data_labelling to get labels also
+    # IT WORKS, ALTHOUGH IT IS SUPID
+
+    # shape = (data.shape[0], window_length, data.shape[1])
+    # t_minus_window_data = np.empty(shape)
+    # for t_i, i in tqdm(enumerate(data.values)):
+    #     window_counter = 0
+    #     for t_j, j in enumerate(data.values):
+    #         if t_j >= t_i: break
+    #         if t_i - t_j <= window_length and t_i >= window_length:
+    #             t_minus_window_data[t_i][window_counter] = j
+    #             window_counter += 1
+
+    return t_minus_window_data
+
+
+def data_labeling(data, feature, timestamp_size):
+    x_data = createTimeWindows(data[:-1], timestamp_size=timestamp_size)
+    # x_data = data[:-1]#.to_numpy()
+    y_data = data[timestamp_size:]
+    # x_data = np.reshape(x_data, (x_data.shape[0], x_data.shape[1], 1))
     return x_data, y_data[feature].to_numpy()
+
 
 def plot_time_series(data, time_range, variable):
     plt.figure(figsize=(18, 9))
@@ -149,21 +171,18 @@ def create_lstm_model(data):
     # return model
 
 
-
 def main():
     feature = "midPriceNorm"
-    df = read_data("../PreProcessing/data_cleaned/part-00000", feature=feature, ratio=2 / 3, validation_size=10)
+    timestamp_size = 72
+    df = read_data("../PreProcessing/data_cleaned/part-00000", feature=feature, ratio=3 / 5, testing_size=10)
     # plot_time_series(data=df['complete'], time_range=500, variable=['midPriceNorm'])
-    x_train, y_train = data_labeling(data=df["train"], feature=feature)
-    validation_data = data_labeling(data=df["validation"], feature=feature)
+    x_train, y_train = data_labeling(data=df["train"], feature=feature, timestamp_size=timestamp_size)
+    validation_data = data_labeling(data=df["validation"], feature=feature, timestamp_size=timestamp_size)
     model = create_lstm_model(data=x_train)
-    training_history = model.fit(x_train, y_train, epochs=5, batch_size=32, validation_data=validation_data)
+    training_history = model.fit(x_train, y_train, epochs=1, batch_size=32, validation_data=validation_data)
     plot_loss(training_history)
-    x_test, _ = data_labeling(data=df["test"], feature=feature)
-    y = model.predict(x_test)
-
-
-
+    # x_test, _ = data_labeling(data=df["test"], feature=feature)
+    # y = model.predict(df["test"][feature])
 
 
 def plot_loss(history):
