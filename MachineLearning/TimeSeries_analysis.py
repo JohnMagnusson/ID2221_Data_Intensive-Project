@@ -21,7 +21,7 @@ from tensorflow.keras.models import Sequential
 from tqdm import tqdm
 import random
 
-
+#
 # physical_devices = tf.config.list_physical_devices('GPU')
 # tf.config.experimental.set_memory_growth(physical_devices[0], enable=True)
 
@@ -57,8 +57,8 @@ def read_data(file_loc, feature, ratio=None, testing_size=None):
     # data = data.drop(
     #     ["conversionSymbol", "volumeto", "low", "close", "open", "conversionType", "midPrice", "empty", feature], axis=1)
 
-    data = data[['time', 'volumefromNorm', 'volumetoNorm', feature]]
-    data['time'] = data['time'].str[1:].astype(float)
+    data = data[['volumetoNorm', feature]]
+    # data['time'] = data['time'].str[1:].astype(float)
 
     print(data.head())
     print(data.dtypes)
@@ -94,7 +94,7 @@ def createTimeWindows(data, timestamp_size):
             t_minus_window_data[counter] = np.array(timestamp_data)
             counter += 1
 
-    # random.shuffle(t_minus_window_data)  # shuffle for good measure.
+    np.random.shuffle(t_minus_window_data)  # shuffle for good measure.
 
     # todo: add data_labelling to get labels also
     # IT WORKS, ALTHOUGH IT IS SUPID
