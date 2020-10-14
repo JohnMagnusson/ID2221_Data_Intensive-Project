@@ -95,5 +95,21 @@ class MyTestCase(unittest.TestCase):
             for key in range(len(data[i].keys())):
                 self.assertEqual(dict_keys[key], keys_order[key])
 
+    def test_coinNameToCoinIdBTC(self):
+        coinId = client.coinNameToCoinId("BTC")
+        self.assertEqual("1182", coinId)
+
+
+    def test_getHistoricalSocialDataWithoutTimeStamp(self):
+        nrRecordsToGet = 2
+        data = client.getHistoricalSocialData(timePrefix="hour", cryptoCurrency="BTC", nrRecordsToGet=nrRecordsToGet)
+        self.assertEqual(nrRecordsToGet, len(data))
+
+    def test_getHistoricalSocialDataWithTimeStamp(self):
+        nrRecordsToGet = 3
+        timeStamp = 1543496126.0
+        data = client.getHistoricalSocialData(timePrefix="day", cryptoCurrency="BTC", toTimeStamp=timeStamp, nrRecordsToGet=nrRecordsToGet)
+        self.assertEqual(nrRecordsToGet, len(data))
+
 if __name__ == '__main__':
     unittest.main()
