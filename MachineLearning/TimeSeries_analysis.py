@@ -4,7 +4,6 @@
 # TODO:
 #
 # PYTHON: finish LSTM
-# Use 72 TimeStamps in the lstm to predict future value - OK
 # Look over model, we can probably add more (batchNorm, more units, layers, ...)
 
 # SCALA:
@@ -26,53 +25,55 @@ import random
 # tf.config.experimental.set_memory_growth(physical_devices[0], enable=True)
 
 
-def read_data(file_loc, feature, ratio=None, testing_size=None):
+def read_data(file_loc, features, predicted_feature, ratio=None, testing_size=None):
     """
+    :param features: parameters that are going to be used to fit the model
     :param file_loc: path of the file in the computer
     :param ratio: ratio between training and testing data
     :param testing_size: how many samples will be used for the testing dataset
     :return: a dictionary of datasets with the complete one, training, testing and validation
     """
-    data = pd.DataFrame(pd.read_csv(file_loc, header=None,
-                                    names=[
-                                        'time',
-                                        'high',
-                                        'low',
-                                        'open',
-                                        'close',
-                                        'volumefrom',
-                                        'volumeto',
-                                        'conversionType',
-                                        'conversionSymbol',
-                                        'midPrice',
-                                        'midPriceNorm',
-                                        'volumefromNorm',
-                                        'volumetoNorm',
-                                        'empty'
-                                    ]))
+    data = pd.DataFrame(pd.read_csv(file_loc, sep=',', index_col=False,
+                                    names=['time', 'high', 'low', 'open', 'volumefrom', 'volumeto', 'close',
+                                           'converstionType', 'conversionSymbol', 'midPrice', 'midPriceNorm',
+                                           'volumefromnorm', 'volumetonorm', 'empty']))
 
     print(data.head())
     print(data.dtypes)
 
-    # data = data.drop(
-    #     ["conversionSymbol", "volumeto", "low", "close", "open", "conversionType", "midPrice", "empty", feature], axis=1)
+    data["time"] = data["time"].str[1:].astype(float)
 
-    data = data[['time', 'volumefromNorm', 'volumetoNorm', feature]]
-    data['time'] = data['time'].str[1:].astype(float)
+    data.set_index("time", inplace=True)
+    features.append(predicted_feature)
+    data = data[features]
 
     print(data.head())
     print(data.dtypes)
 
-    if ratio is not None:
+    data['value_to_predict'] = data[predicted_feature].shift(-1)
+    # data['classification_to_predict'] = list(map(classify, data['close'], data['future']))
+
+    training_data, validation_data, testing_data = splitting_datasets(data, ratio, testing_size)
+
+    return {'complete': data, 'train': training_data, 'validation': validation_data, 'test': testing_data}
+
+
+def splitting_datasets(data, ratio, testing_size):
+    if ratio is None:
+        print("by default ratio is set to 0.66")
+        training_ratio = int(0.66 * data.shape[0])
+    else:
         training_ratio = int(ratio * data.shape[0])
-        training_data = data[:training_ratio]
-        # training_data = createTimeWindows(data[:training_ratio], window_length=window_length)
+    training_data = data[:training_ratio]
+    if testing_size is None:
+        print("by default testing size is set to 10 samples")
+        validation_data = data[training_ratio:data.shape[0] - 10]
+        testing_data = data[data.shape[0] - 10:]
+    else:
         validation_data = data[training_ratio:data.shape[0] - testing_size]
         testing_data = data[data.shape[0] - testing_size:]
-        return {'complete': data, 'train': training_data, 'test': testing_data, 'validation': validation_data}
 
-    else:
-        return {'complete': data}
+    return training_data, validation_data, testing_data
 
 
 def createTimeWindows(data, timestamp_size):
@@ -172,12 +173,14 @@ def create_lstm_model(data):
 
 
 def main():
-    feature = "midPriceNorm"
+    features = ['high', 'low', 'open', 'volumefrom', 'volumeto', 'midPrice', 'volumefromnorm', 'volumetonorm']
+    predicted_feature = 'close'
     timestamp_size = 72
-    df = read_data("../PreProcessing/data_cleaned/part-00000", feature=feature, ratio=3 / 5, testing_size=10)
+    df = read_data("../PreProcessing/data_cleaned/part-00000", features=features, predicted_feature=predicted_feature,
+                   ratio=3 / 5, testing_size=10)
     # plot_time_series(data=df['complete'], time_range=500, variable=['midPriceNorm'])
-    x_train, y_train = data_labeling(data=df["train"], feature=feature, timestamp_size=timestamp_size)
-    validation_data = data_labeling(data=df["validation"], feature=feature, timestamp_size=timestamp_size)
+    x_train, y_train = data_labeling(data=df["train"], features=features, timestamp_size=timestamp_size)
+    validation_data = data_labeling(data=df["validation"], features=features, timestamp_size=timestamp_size)
     model = create_lstm_model(data=x_train)
     training_history = model.fit(x_train, y_train, epochs=1, batch_size=32, validation_data=validation_data)
     plot_loss(training_history)
