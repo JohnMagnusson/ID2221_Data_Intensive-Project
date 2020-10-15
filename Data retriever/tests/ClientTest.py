@@ -113,7 +113,7 @@ class MyTestCase(unittest.TestCase):
 
     def test_assertOrderInGetHistoricalSocialData(self):
         nrRecordsToGet = 2
-        data = client.getHistoricalSocialData(timePrefix="hour", cryptoCurrency="BTC", nrRecordsToGet=nrRecordsToGet)
+        data = client.getHistoricalSocialData(timePrefix="hour", cryptoCurrency="BTC", nrRecordsToGet=nrRecordsToGet, toTimeStamp=1637880400)
         keys_order = ['time', 'comments', 'posts', 'followers', 'points', 'overview_page_views', 'analysis_page_views', 'markets_page_views',
                       'charts_page_views', 'trades_page_views', 'forum_page_views', 'influence_page_views', 'total_page_views',
                       'fb_likes', 'fb_talking_about', 'twitter_followers', 'twitter_following', 'twitter_lists', 'twitter_favourites',

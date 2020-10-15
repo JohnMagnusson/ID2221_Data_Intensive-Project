@@ -47,6 +47,8 @@ class Client:
 
         windowsSettings = self.getUpToTimeStamps(startTime, endTime, requestParameters.timePrefix)
         dataBatches = []
+        if all(time[0] < 1552366800 for time in windowsSettings):
+            raise Exception("The time window created is after accessible data from hhe API. Earliest data  point is: " + str(1552276800))
 
         print("Getting data with the set window")
         for windowSetting in tqdm(windowsSettings):
@@ -138,7 +140,7 @@ class Client:
         Gets the historical social data with the input parameters
         :param timePrefix: The prefix of the time (day, hour, minute)
         :param cryptoCurrency: Which cryptocurrency to get data on (BTC, ETH etc.)
-        :param toTimeStamp: Up to witch time stamp data should be retrieved
+        :param toTimeStamp: Up to witch time stamp data should be retrieved. Earliest available is 1552366800
         :param nrRecordsToGet: Number of records to get up to the toTimeStamp
         :return: A json containing the data from the API
         """
