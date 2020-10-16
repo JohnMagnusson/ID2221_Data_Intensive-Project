@@ -6,12 +6,13 @@ import pandas as pd
 from tensorflow.keras.layers import LSTM, Dropout, Dense, BatchNormalization
 from tensorflow.keras.models import Sequential
 import os
+import random
 
 
 # physical_devices = tf.config.list_physical_devices('GPU')
 # tf.config.experimental.set_memory_growth(physical_devices[0], enable=True)
 
-def read_data(folder_loc, features, predicted_feature):
+def read_data(folder_loc, features, predicted_feature, type_of_data):
     """
     :param predicted_feature: parameter that is going to be predicted
     :param features: parameters that are going to be used to fit the model
@@ -25,10 +26,22 @@ def read_data(folder_loc, features, predicted_feature):
         for file in os.listdir(f'{folder_loc}/{datasets_folder}'):
             if file == "part-00000":
                 data_loc = f'{folder_loc}/{datasets_folder}/{file}'
-                data_temp = pd.DataFrame(pd.read_csv(data_loc, sep=',', index_col=False,
-                                                     names=['time', 'high', 'low', 'open', 'volumefrom', 'volumeto',
-                                                            'close', 'converstionType', 'conversionSymbol', 'midPrice',
-                                                            'midPriceNorm', 'volumefromNorm', 'volumetoNorm', 'empty']))
+                if type_of_data == "complete":
+                    data_temp = pd.DataFrame(pd.read_csv(data_loc, sep=',', index_col=False,
+                                                         names=['time', 'high', 'low', 'open', 'volumefrom', 'volumeto',
+                                                                'close', 'converstionType', 'conversionSymbol',
+                                                                'midPrice', 'midPriceNorm', 'volumefromNorm',
+                                                                'volumetoNorm', 'empty']))
+                if type_of_data == "socialMedia":
+                    data_temp = pd.DataFrame(pd.read_csv(data_loc, sep=',', index_col=False,
+                                                         names=['time', 'high', 'low', 'open', 'volumefrom', 'volumeto',
+                                                                'close', 'converstionType', 'conversionSymbol',
+                                                                'midPrice', 'midPriceNorm', 'volumefromNorm',
+                                                                'volumetoNorm', 'total_page_views', 'fb_talking_about',
+                                                                'reddit_posts_per_hour', 'reddit_comments_per_hour',
+                                                                'pageViewsNorm', 'fbTalkingNorm', 'redditPostsNorm',
+                                                                'redditCommentsNorm', 'empty']))
+
 
                 data_temp["time"] = data_temp["time"].str[1:].astype(float)
 
@@ -42,8 +55,6 @@ def read_data(folder_loc, features, predicted_feature):
                 print(data_temp.dtypes)
 
                 data[datasets_folder] = data_temp
-
-    # data['classification_to_predict'] = list(map(classify, data['close'], data['future']))
 
     return data
 
@@ -64,18 +75,25 @@ def createTimeWindows(data, timestamp_size):
     for i in data.values:  # iterate over the values
         timestamp_data.append([n for n in i])  # store all but the target
         if len(timestamp_data) == timestamp_size:
-            t_minus_window_data[counter] = np.array(timestamp_data)
+            suffled_timestamp = random.sample(timestamp_data, len(timestamp_data))
+            t_minus_window_data[counter] = np.array(suffled_timestamp)
             counter += 1
 
-    a = np.random.shuffle(t_minus_window_data)
-
-    return a
+    return t_minus_window_data
 
 
-def data_labeling(data, features, timestamp_size):
+def data_labeling(data, features, timestamp_size, testing_size=None):
     x_data = createTimeWindows(data[features], timestamp_size=timestamp_size)
     y_data = data[['value_to_predict']].to_numpy()
-    return x_data, y_data[timestamp_size - 1:]
+
+    if testing_size is not None:
+        validation_x = x_data[:x_data.shape[0] - testing_size, :, :]
+        validation_y = y_data[timestamp_size - 1:y_data.shape[0] - testing_size, :]
+        test_x = validation_x[-testing_size:, :, :]
+        test_y = validation_y[-testing_size:, :]
+        return (validation_x, validation_y), (test_x, test_y)
+    else:
+        return x_data, y_data[timestamp_size - 1:]
 
 
 def plot_time_series(data, time_range, variable):
@@ -129,37 +147,6 @@ def create_lstm_model(data):
     # return model
 
 
-def main():
-    # lista = []
-    # for i in range(4):
-    #     lista.append(np.array([np.array([i, i+1, i+2]),
-    #                           np.array([i, i+4, i+5])]
-    #                           ))
-    # lt = np.array(lista)
-    # b=1
-
-    features = ['volumefromNorm', 'volumetoNorm']
-    predicted_feature = 'midPriceNorm'
-    timestamp_size = 72
-    df = read_data(folder_loc="../PreProcessing/cleaned_data", features=features, predicted_feature=predicted_feature)
-    # plot_time_series(data=df['complete'], time_range=500, variable=['midPriceNorm'])
-    x_train, y_train = data_labeling(data=df["training_set"], features=features, timestamp_size=timestamp_size)
-    x_train = x_train[:10, :, :]
-    y_train = y_train[:10, :]
-    validation_data = data_labeling(data=df["validation_set"], features=features, timestamp_size=timestamp_size)
-    a = validation_data[0][:validation_data[0].shape[0] - 10, :, :]
-    b = validation_data[1][:validation_data[1].shape[0] - 10, :]
-    validation_data = (a, b)
-    model = create_lstm_model(data=x_train)
-    training_history = model.fit(x_train, y_train, epochs=1, batch_size=32, validation_data=validation_data)
-    plot_loss(training_history)
-
-    x_test = validation_data[0][:-10]
-    y_test = validation_data[1][:-10]
-    y_predicted = model.predict(x_test)
-    plot_predict(y_test, y_predicted)
-
-
 def plot_loss(history):
     plt.plot(history.history['loss'], label='loss')
     plt.plot(history.history['val_loss'], label='validation loss')
@@ -179,6 +166,30 @@ def plot_predict(real, predicted):
     plt.ylabel('Bitcoin Market price')
     plt.legend()
     plt.show()
+
+
+def main():
+    predicted_feature = 'midPriceNorm'
+    timestamp_size = 72
+    # features = ['volumefromNorm', 'volumetoNorm']
+    # df = read_data(folder_loc="../PreProcessing/cleaned_data", features=features, predicted_feature=predicted_feature)
+    features = ['volumefromNorm', 'volumetoNorm', 'redditPostsNorm', 'fbTalkingNorm', 'pageViewsNorm',
+                'redditCommentsNorm']
+    df = read_data(folder_loc="../PreProcessing/cleaned_data_socialMedia", features=features,
+                   predicted_feature=predicted_feature,
+                   type_of_data="socialMedia")
+    # plot_time_series(data=df['complete'], time_range=500, variable=['midPriceNorm'])
+    x_train, y_train = data_labeling(data=df["training_set"], features=features, timestamp_size=timestamp_size,
+                                     testing_size=None)
+    validation_data, testing_data = data_labeling(data=df["validation_set"], features=features,
+                                                  timestamp_size=timestamp_size, testing_size=10)
+
+    model = create_lstm_model(data=x_train)
+    training_history = model.fit(x_train, y_train, epochs=5, batch_size=32, validation_data=validation_data)
+    plot_loss(training_history)
+
+    y_predicted = model.predict(testing_data[0])
+    plot_predict(testing_data[1], y_predicted)
 
 
 if __name__ == "__main__":
