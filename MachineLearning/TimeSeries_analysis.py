@@ -1,46 +1,30 @@
-# https://www.datacamp.com/community/tutorials/lstm-python-stock-market
 # packages and libraries
-
-# TODO:
-#
-# PYTHON: finish LSTM
-# Look over model, we can probably add more (batchNorm, more units, layers, ...)
-
-# SCALA:
-# Clean raw API response in Scala (once everything works)
-
-
 from collections import deque
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import tensorflow as tf
 from tensorflow.keras.layers import LSTM, Dropout, Dense, BatchNormalization
 from tensorflow.keras.models import Sequential
-from tqdm import tqdm
-import random
 import os
 
 
-#
 # physical_devices = tf.config.list_physical_devices('GPU')
 # tf.config.experimental.set_memory_growth(physical_devices[0], enable=True)
 
-def read_data(file_loc, features, predicted_feature):
+def read_data(folder_loc, features, predicted_feature):
     """
+    :param predicted_feature: parameter that is going to be predicted
     :param features: parameters that are going to be used to fit the model
-    :param file_loc: path of the file in the computer
-    :param ratio: ratio between training and testing data
-    :param testing_size: how many samples will be used for the testing dataset
+    :param folder_loc: path of the folder with all 3 data in the computer
     :return: a dictionary of datasets with the complete one, training, testing and validation
     """
 
     data = {}
     features.append(predicted_feature)
-    for dir in os.listdir(file_loc):
-        for file in os.listdir(f'{file_loc}/{dir}'):
+    for datasets_folder in os.listdir(folder_loc):
+        for file in os.listdir(f'{folder_loc}/{datasets_folder}'):
             if file == "part-00000":
-                data_loc = f'{file_loc}/{dir}/{file}'
+                data_loc = f'{folder_loc}/{datasets_folder}/{file}'
                 data_temp = pd.DataFrame(pd.read_csv(data_loc, sep=',', index_col=False,
                                                      names=['time', 'high', 'low', 'open', 'volumefrom', 'volumeto',
                                                             'close', 'converstionType', 'conversionSymbol', 'midPrice',
@@ -57,31 +41,11 @@ def read_data(file_loc, features, predicted_feature):
                 print(data_temp.head())
                 print(data_temp.dtypes)
 
-                data[dir] = data_temp
-
+                data[datasets_folder] = data_temp
 
     # data['classification_to_predict'] = list(map(classify, data['close'], data['future']))
 
     return data
-
-
-def splitting_datasets(data, ratio, testing_size):
-    if ratio is None:
-        print("by default ratio is set to 0.66")
-        training_ratio = int(0.66 * data.shape[0])
-    else:
-        training_ratio = int(ratio * data.shape[0])
-    training_data = data.head(training_ratio)
-    training_data_ = data[:training_ratio]
-    if testing_size is None:
-        print("by default testing size is set to 10 samples")
-        validation_data = data[training_ratio:data.shape[0] - 10]
-        testing_data = data[data.shape[0] - 10:]
-    else:
-        validation_data = data[training_ratio:data.shape[0] - testing_size]
-        testing_data = data[data.shape[0] - testing_size:]
-
-    return training_data, validation_data, testing_data
 
 
 def createTimeWindows(data, timestamp_size):
@@ -103,29 +67,15 @@ def createTimeWindows(data, timestamp_size):
             t_minus_window_data[counter] = np.array(timestamp_data)
             counter += 1
 
-    np.random.shuffle(t_minus_window_data)  # shuffle for good measure.
+    a = np.random.shuffle(t_minus_window_data)
 
-    # todo: add data_labelling to get labels also
-    # IT WORKS, ALTHOUGH IT IS SUPID
-
-    # shape = (data.shape[0], window_length, data.shape[1])
-    # t_minus_window_data = np.empty(shape)
-    # for t_i, i in tqdm(enumerate(data.values)):
-    #     window_counter = 0
-    #     for t_j, j in enumerate(data.values):
-    #         if t_j >= t_i: break
-    #         if t_i - t_j <= window_length and t_i >= window_length:
-    #             t_minus_window_data[t_i][window_counter] = j
-    #             window_counter += 1
-
-    return t_minus_window_data
+    return a
 
 
 def data_labeling(data, features, timestamp_size):
-    test = data[features]
-    x_data = createTimeWindows(test, timestamp_size=timestamp_size)
+    x_data = createTimeWindows(data[features], timestamp_size=timestamp_size)
     y_data = data[['value_to_predict']].to_numpy()
-    return x_data, y_data[timestamp_size-1:]
+    return x_data, y_data[timestamp_size - 1:]
 
 
 def plot_time_series(data, time_range, variable):
@@ -180,18 +130,34 @@ def create_lstm_model(data):
 
 
 def main():
+    # lista = []
+    # for i in range(4):
+    #     lista.append(np.array([np.array([i, i+1, i+2]),
+    #                           np.array([i, i+4, i+5])]
+    #                           ))
+    # lt = np.array(lista)
+    # b=1
+
     features = ['volumefromNorm', 'volumetoNorm']
     predicted_feature = 'midPriceNorm'
     timestamp_size = 72
-    df = read_data("../PreProcessing/cleaned_data", features=features, predicted_feature=predicted_feature)
+    df = read_data(folder_loc="../PreProcessing/cleaned_data", features=features, predicted_feature=predicted_feature)
     # plot_time_series(data=df['complete'], time_range=500, variable=['midPriceNorm'])
     x_train, y_train = data_labeling(data=df["training_set"], features=features, timestamp_size=timestamp_size)
+    x_train = x_train[:10, :, :]
+    y_train = y_train[:10, :]
     validation_data = data_labeling(data=df["validation_set"], features=features, timestamp_size=timestamp_size)
+    a = validation_data[0][:validation_data[0].shape[0] - 10, :, :]
+    b = validation_data[1][:validation_data[1].shape[0] - 10, :]
+    validation_data = (a, b)
     model = create_lstm_model(data=x_train)
     training_history = model.fit(x_train, y_train, epochs=1, batch_size=32, validation_data=validation_data)
     plot_loss(training_history)
-    # x_test, _ = data_labeling(data=df["test"], feature=feature)
-    # y = model.predict(df["test"][feature])
+
+    x_test = validation_data[0][:-10]
+    y_test = validation_data[1][:-10]
+    y_predicted = model.predict(x_test)
+    plot_predict(y_test, y_predicted)
 
 
 def plot_loss(history):
@@ -202,6 +168,16 @@ def plot_loss(history):
     plt.ylabel('Error [MSE]')
     plt.legend()
     plt.grid(True)
+    plt.show()
+
+
+def plot_predict(real, predicted):
+    plt.figure(figsize=(20, 10))
+    plt.plot(real, color='blue', label='Bitcoin')
+    plt.plot(predicted, color='red', label='Predicted Bitcoin')
+    plt.xlabel('Time: Hourly ')
+    plt.ylabel('Bitcoin Market price')
+    plt.legend()
     plt.show()
 
 
