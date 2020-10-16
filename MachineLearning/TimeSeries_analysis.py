@@ -4,7 +4,6 @@
 # TODO:
 #
 # PYTHON: finish LSTM
-# Use 72 TimeStamps in the lstm to predict future value - OK
 # Look over model, we can probably add more (batchNorm, more units, layers, ...)
 
 # SCALA:
@@ -20,13 +19,14 @@ from tensorflow.keras.layers import LSTM, Dropout, Dense, BatchNormalization
 from tensorflow.keras.models import Sequential
 from tqdm import tqdm
 import random
+import os
 
 
+#
 # physical_devices = tf.config.list_physical_devices('GPU')
 # tf.config.experimental.set_memory_growth(physical_devices[0], enable=True)
 
-
-def read_data(file_loc, features, predicted_feature, ratio=None, testing_size=None):
+def read_data(file_loc, features, predicted_feature):
     """
     :param features: parameters that are going to be used to fit the model
     :param file_loc: path of the file in the computer
@@ -34,29 +34,35 @@ def read_data(file_loc, features, predicted_feature, ratio=None, testing_size=No
     :param testing_size: how many samples will be used for the testing dataset
     :return: a dictionary of datasets with the complete one, training, testing and validation
     """
-    data = pd.DataFrame(pd.read_csv(file_loc, sep=',', index_col=False,
-                                    names=['time', 'high', 'low', 'open', 'volumefrom', 'volumeto', 'close',
-                                           'converstionType', 'conversionSymbol', 'midPrice', 'midPriceNorm',
-                                           'volumefromnorm', 'volumetonorm', 'empty']))
 
-    print(data.head())
-    print(data.dtypes)
-
-    data["time"] = data["time"].str[1:].astype(float)
-
-    data.set_index("time", inplace=True)
+    data = {}
     features.append(predicted_feature)
-    data = data[features]
+    for dir in os.listdir(file_loc):
+        for file in os.listdir(f'{file_loc}/{dir}'):
+            if file == "part-00000":
+                data_loc = f'{file_loc}/{dir}/{file}'
+                data_temp = pd.DataFrame(pd.read_csv(data_loc, sep=',', index_col=False,
+                                                     names=['time', 'high', 'low', 'open', 'volumefrom', 'volumeto',
+                                                            'close', 'converstionType', 'conversionSymbol', 'midPrice',
+                                                            'midPriceNorm', 'volumefromNorm', 'volumetoNorm', 'empty']))
 
-    print(data.head())
-    print(data.dtypes)
+                data_temp["time"] = data_temp["time"].str[1:].astype(float)
 
-    data['value_to_predict'] = data[predicted_feature].shift(-1)
+                data_temp.set_index("time", inplace=True)
+
+                if features is not None:
+                    data_temp = data_temp[features]
+
+                data_temp['value_to_predict'] = data_temp[predicted_feature].shift(-1)
+                print(data_temp.head())
+                print(data_temp.dtypes)
+
+                data[dir] = data_temp
+
+
     # data['classification_to_predict'] = list(map(classify, data['close'], data['future']))
 
-    training_data, validation_data, testing_data = splitting_datasets(data, ratio, testing_size)
-
-    return {'complete': data, 'train': training_data, 'validation': validation_data, 'test': testing_data}
+    return data
 
 
 def splitting_datasets(data, ratio, testing_size):
@@ -65,7 +71,8 @@ def splitting_datasets(data, ratio, testing_size):
         training_ratio = int(0.66 * data.shape[0])
     else:
         training_ratio = int(ratio * data.shape[0])
-    training_data = data[:training_ratio]
+    training_data = data.head(training_ratio)
+    training_data_ = data[:training_ratio]
     if testing_size is None:
         print("by default testing size is set to 10 samples")
         validation_data = data[training_ratio:data.shape[0] - 10]
@@ -114,12 +121,11 @@ def createTimeWindows(data, timestamp_size):
     return t_minus_window_data
 
 
-def data_labeling(data, feature, timestamp_size):
-    x_data = createTimeWindows(data[:-1], timestamp_size=timestamp_size)
-    # x_data = data[:-1]#.to_numpy()
-    y_data = data[timestamp_size:]
-    # x_data = np.reshape(x_data, (x_data.shape[0], x_data.shape[1], 1))
-    return x_data, y_data[feature].to_numpy()
+def data_labeling(data, features, timestamp_size):
+    test = data[features]
+    x_data = createTimeWindows(test, timestamp_size=timestamp_size)
+    y_data = data[['value_to_predict']].to_numpy()
+    return x_data, y_data[timestamp_size-1:]
 
 
 def plot_time_series(data, time_range, variable):
@@ -174,14 +180,13 @@ def create_lstm_model(data):
 
 
 def main():
-    features = ['high', 'low', 'open', 'volumefrom', 'volumeto', 'midPrice', 'volumefromnorm', 'volumetonorm']
-    predicted_feature = 'close'
+    features = ['volumefromNorm', 'volumetoNorm']
+    predicted_feature = 'midPriceNorm'
     timestamp_size = 72
-    df = read_data("../PreProcessing/data_cleaned/part-00000", features=features, predicted_feature=predicted_feature,
-                   ratio=3 / 5, testing_size=10)
+    df = read_data("../PreProcessing/cleaned_data", features=features, predicted_feature=predicted_feature)
     # plot_time_series(data=df['complete'], time_range=500, variable=['midPriceNorm'])
-    x_train, y_train = data_labeling(data=df["train"], features=features, timestamp_size=timestamp_size)
-    validation_data = data_labeling(data=df["validation"], features=features, timestamp_size=timestamp_size)
+    x_train, y_train = data_labeling(data=df["training_set"], features=features, timestamp_size=timestamp_size)
+    validation_data = data_labeling(data=df["validation_set"], features=features, timestamp_size=timestamp_size)
     model = create_lstm_model(data=x_train)
     training_history = model.fit(x_train, y_train, epochs=1, batch_size=32, validation_data=validation_data)
     plot_loss(training_history)
