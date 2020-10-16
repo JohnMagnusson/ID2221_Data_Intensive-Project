@@ -4,6 +4,7 @@
 # TODO:
 #
 # PYTHON: finish LSTM
+# Use 72 TimeStamps in the lstm to predict future value - OK
 # Look over model, we can probably add more (batchNorm, more units, layers, ...)
 
 # SCALA:
@@ -95,7 +96,7 @@ def createTimeWindows(data, timestamp_size):
             t_minus_window_data[counter] = np.array(timestamp_data)
             counter += 1
 
-    # random.shuffle(t_minus_window_data)  # shuffle for good measure.
+    np.random.shuffle(t_minus_window_data)  # shuffle for good measure.
 
     # todo: add data_labelling to get labels also
     # IT WORKS, ALTHOUGH IT IS SUPID
