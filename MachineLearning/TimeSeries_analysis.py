@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from tensorflow.keras.layers import LSTM, Dropout, Dense, BatchNormalization
 from tensorflow.keras.models import Sequential
+import tensorflow.keras.metrics as metrics
 import os
 import random
 
@@ -41,7 +42,6 @@ def read_data(folder_loc, features, predicted_feature, type_of_data):
                                                                 'reddit_posts_per_hour', 'reddit_comments_per_hour',
                                                                 'pageViewsNorm', 'fbTalkingNorm', 'redditPostsNorm',
                                                                 'redditCommentsNorm', 'empty']))
-
 
                 data_temp["time"] = data_temp["time"].str[1:].astype(float)
 
@@ -125,7 +125,9 @@ def create_lstm_model(data):
     model.add(Dropout(0.2))
 
     model.add(Dense(units=1))
-    model.compile(optimizer='adam', loss='mean_squared_error', metrics=["accuracy"])
+    model.compile(optimizer='adam', loss='mean_squared_error', metrics=[
+        metrics.MeanSquaredError()
+    ])
     return model
     # model = Sequential()
     # model.add(LSTM(128, input_shape=(data.shape[1:]), return_sequences=True))
@@ -170,14 +172,15 @@ def plot_predict(real, predicted):
 
 def main():
     predicted_feature = 'midPriceNorm'
-    timestamp_size = 72
-    # features = ['volumefromNorm', 'volumetoNorm']
-    # df = read_data(folder_loc="../PreProcessing/cleaned_data", features=features, predicted_feature=predicted_feature)
-    features = ['volumefromNorm', 'volumetoNorm', 'redditPostsNorm', 'fbTalkingNorm', 'pageViewsNorm',
-                'redditCommentsNorm']
-    df = read_data(folder_loc="../PreProcessing/cleaned_data_socialMedia", features=features,
-                   predicted_feature=predicted_feature,
-                   type_of_data="socialMedia")
+    timestamp_size = 20
+    features = ['volumefromNorm']
+    df = read_data(folder_loc="../PreProcessing/cleaned_data", features=features, predicted_feature=predicted_feature,
+                   type_of_data='complete')
+    # features = ['volumefromNorm', 'volumetoNorm', 'redditPostsNorm', 'fbTalkingNorm', 'pageViewsNorm',
+    #             'redditCommentsNorm']
+    # df = read_data(folder_loc="../PreProcessing/cleaned_data_socialMedia", features=features,
+    #                predicted_feature=predicted_feature,
+    #                type_of_data="socialMedia")
     # plot_time_series(data=df['complete'], time_range=500, variable=['midPriceNorm'])
     x_train, y_train = data_labeling(data=df["training_set"], features=features, timestamp_size=timestamp_size,
                                      testing_size=None)
