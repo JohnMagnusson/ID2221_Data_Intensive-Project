@@ -5,6 +5,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from tensorflow.keras.layers import LSTM, Dropout, Dense, BatchNormalization
 from tensorflow.keras.models import Sequential
+import tensorflow as tf
 import copy
 import os
 import random
@@ -21,8 +22,10 @@ random.seed(12)
 # - why is y[t] != to x[t-1]?
 
 
-# physical_devices = tf.config.list_physical_devices('GPU')
-# tf.config.experimental.set_memory_growth(physical_devices[0], enable=True)
+# Allows to run on GPU if available
+physical_devices = tf.config.list_physical_devices('GPU')
+if len(physical_devices) > 0:
+    tf.config.experimental.set_memory_growth(physical_devices[0], enable=True)
 
 def read_data(folder_loc, features, predicted_feature, type_of_data):
     """
@@ -143,6 +146,18 @@ def plot_loss(history):
     plt.show()
 
 
+def forecast(model, from_data_sequence, steps_into_future):
+    predicted_sequence = []
+    data_sequence = from_data_sequence[-1]
+    window_length = from_data_sequence.shape[1]
+    for i in range(steps_into_future):
+        tmp = data_sequence[-window_length:].reshape((1, window_length, data_sequence.shape[1]))
+        predicted_value = model.predict(tmp)
+        data_sequence = np.concatenate((data_sequence, predicted_value))
+        predicted_sequence.append(predicted_value[0][0])
+    return from_data_sequence, predicted_sequence
+
+
 def plot_predict(real, predicted):
     plt.figure(figsize=(20, 10))
     plt.plot(real, color='blue', label='Bitcoin')
@@ -154,18 +169,19 @@ def plot_predict(real, predicted):
 
 
 def main():
-    epochs = 3
+    epochs = 1
     batch_size = 128
-    timeWindow = 72
+    timeWindow = 5
     testing_samples = 1000
-    features = ['volumetoNorm']
+    # features = ['volumetoNorm']
+    features = []
     predicted_feature = 'midPriceNorm'
 
     total_features = copy.deepcopy(features)
     total_features.append(predicted_feature)
     number_features = len(total_features)
 
-    df = read_data("PreProcessing/cleaned_data", features=features, predicted_feature=predicted_feature,
+    df = read_data("../PreProcessing/cleaned_data", features=features, predicted_feature=predicted_feature,
                    type_of_data="complete")
 
     train_x, train_y = data_labeling(data=np.array(df["training_set"]), features=total_features,
@@ -178,8 +194,13 @@ def main():
 
     regressor = create_lstm_model(data=train_x, num_features=number_features)
     regressor.fit(train_x, train_y, epochs=epochs, batch_size=batch_size)
-    predicted_testing_data = regressor.predict(test_x)
 
+    # Predicts n step into future
+    from_data_sequence, predicted_sequence = forecast(regressor, test_x[timeWindow:], steps_into_future=100)
+    plot_predict(test_y, predicted_sequence)
+
+    # Predicts one step on each row in batch
+    predicted_testing_data = regressor.predict(test_x)
     plot_predict(test_y, predicted_testing_data)
 
 
