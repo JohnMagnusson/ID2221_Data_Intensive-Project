@@ -5,22 +5,24 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from tensorflow.keras.layers import LSTM, Dropout, Dense, BatchNormalization
 from tensorflow.keras.models import Sequential
+from tensorflow.keras.metrics import MeanSquaredError
 import tensorflow as tf
 import copy
 import os
 import random
 
+import tensorflow
+
+tensorflow.random.set_seed(12)
+np.random.seed(12)
 random.seed(12)
 
 
 ## TODO:
-# - is plot shifted?
-# - something is random (findout)
 # - estimate one week ahead without updating the model daily;
-# - estimation with ground truth
-# - implement validation data into the training
 # - why is y[t] != to x[t-1]?
-
+# - implement shuffle in the data
+# - try to predict mid price [t] without mid price [t-1, -2, ...]
 
 # Allows to run on GPU if available
 physical_devices = tf.config.list_physical_devices('GPU')
@@ -131,8 +133,14 @@ def create_lstm_model(data, num_features):
     model.add(Dropout(0.2))
     model.add(Dense(units=1))
 
-    model.compile(optimizer='adam', loss='mean_squared_error')
+    model.compile(optimizer='adam', loss='mean_squared_error', metrics=MeanSquaredError())
     return model
+
+
+def plot_parameter(data, parameter):
+    plt.plot(data[parameter], label=parameter)
+    plt.grid(True)
+    plt.show()
 
 
 def plot_loss(history):
@@ -163,8 +171,9 @@ def plot_predict(real, predicted):
     plt.plot(real, color='blue', label='Bitcoin')
     plt.plot(predicted, color='red', label='Predicted Bitcoin')
     plt.xlabel('Time: Hourly ')
-    plt.ylabel('Bitcoin Market price in 0-1 scale')
+    plt.ylabel('Bitcoin Market price on 0-1 scale')
     plt.legend()
+    plt.ylim([0, 1])
     plt.show()
 
 
@@ -173,6 +182,7 @@ def main():
     batch_size = 128
     timeWindow = 5
     testing_samples = 1000
+    # features = ['volumetoNorm', 'pageViewsNorm', 'fbTalkingNorm', 'redditPostsNorm', 'redditCommentsNorm']
     # features = ['volumetoNorm']
     features = []
     predicted_feature = 'midPriceNorm'
@@ -181,19 +191,23 @@ def main():
     total_features.append(predicted_feature)
     number_features = len(total_features)
 
-    df = read_data("../PreProcessing/cleaned_data", features=features, predicted_feature=predicted_feature,
-                   type_of_data="complete")
+    # df = read_data("../PreProcessing/cleaned_data", features=features, predicted_feature=predicted_feature,
+    #                type_of_data="complete")
+    df = read_data("../PreProcessing/cleaned_data_socialMedia", features=features, predicted_feature=predicted_feature,
+                   type_of_data="socialMedia")
+
+    # plot_parameter(df['training_set'], predicted_feature)
 
     train_x, train_y = data_labeling(data=np.array(df["training_set"]), features=total_features,
                                      timestamp_size=timeWindow,
                                      testing_size=None)
 
-    (validation_x, validation_y), (test_x, test_y) = data_labeling(data=np.array(df["validation_set"]),
-                                                                   features=total_features, timestamp_size=timeWindow,
-                                                                   testing_size=testing_samples)
+    validation, (test_x, test_y) = data_labeling(data=np.array(df["validation_set"]),
+                                                 features=total_features, timestamp_size=timeWindow,
+                                                 testing_size=testing_samples)
 
     regressor = create_lstm_model(data=train_x, num_features=number_features)
-    regressor.fit(train_x, train_y, epochs=epochs, batch_size=batch_size)
+    regressor.fit(train_x, train_y, epochs=epochs, batch_size=batch_size, validation_data=validation)
 
     # Predicts n step into future
     from_data_sequence, predicted_sequence = forecast(regressor, test_x[timeWindow:], steps_into_future=100)
