@@ -1,5 +1,4 @@
 # packages and libraries
-from collections import deque
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -21,7 +20,6 @@ random.seed(12)
 ## TODO:
 # - estimate one week ahead without updating the model daily;
 # - why is y[t] != to x[t-1]?
-# - implement shuffle in the data
 # - try to predict mid price [t] without mid price [t-1, -2, ...]
 
 # Allows to run on GPU if available
@@ -90,23 +88,11 @@ def createTimeWindows(data, timestamp_size):
         data_x.append(data[i - timestamp_size:i, :data.shape[1] - 1])
         data_y.append(data[i, -1])
 
-    return np.array(data_x), np.array(data_y)
-
-    # shape = (data.shape[0] - timestamp_size + 1, timestamp_size, data.shape[1])
-    # t_minus_window_data = np.empty(shape)
-    # timestamp_data = deque(maxlen=timestamp_size)
-    #
-    # counter = 0
-    # for i in data.values:  # iterate over the values
-    #     timestamp_data.append([n for n in i])  # store all but the target
-    #     if len(timestamp_data) == timestamp_size:
-    #         # suffled_timestamp = random.sample(timestamp_data, len(timestamp_data))
-    #         suffled_timestamp = timestamp_data
-    #         t_minus_window_data[counter] = np.array(suffled_timestamp)
-    #         counter += 1
-
-    # return t_minus_window_data[:-2,:,:]
-
+    # Takes two list and shuffles them together in order
+    zipped = list(zip(data_x, data_y))
+    random.shuffle(zipped)
+    data_x_shuffled,  data_y_shuffled = zip(*zipped)
+    return np.array(data_x_shuffled), np.array(data_y_shuffled)
 
 def data_labeling(data, features, timestamp_size, testing_size=None):
     if testing_size is not None:
@@ -181,7 +167,7 @@ def main():
     epochs = 1
     batch_size = 128
     timeWindow = 5
-    testing_samples = 1000
+    testing_samples = 100
     # features = ['volumetoNorm', 'pageViewsNorm', 'fbTalkingNorm', 'redditPostsNorm', 'redditCommentsNorm']
     # features = ['volumetoNorm']
     features = []
@@ -207,10 +193,10 @@ def main():
                                                  testing_size=testing_samples)
 
     regressor = create_lstm_model(data=train_x, num_features=number_features)
-    regressor.fit(train_x, train_y, epochs=epochs, batch_size=batch_size, validation_data=validation)
+    regressor.fit(train_x, train_y, epochs=epochs, batch_size=batch_size, validation_data=validation, shuffle=True)
 
     # Predicts n step into future
-    from_data_sequence, predicted_sequence = forecast(regressor, test_x[timeWindow:], steps_into_future=100)
+    from_data_sequence, predicted_sequence = forecast(regressor, test_x[timeWindow:], steps_into_future=testing_samples)
     plot_predict(test_y, predicted_sequence)
 
     # Predicts one step on each row in batch
