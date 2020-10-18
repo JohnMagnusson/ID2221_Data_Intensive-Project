@@ -1,13 +1,24 @@
 # packages and libraries
 from collections import deque
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
 from tensorflow.keras.layers import LSTM, Dropout, Dense, BatchNormalization
 from tensorflow.keras.models import Sequential
-import tensorflow.keras.metrics as metrics
+import copy
 import os
 import random
+
+random.seed(12)
+
+
+## TODO:
+# - is plot shifted?
+# - something is random (findout)
+# - estimate one week ahead without updating the model daily;
+# - estimation with ground truth
+# - implement validation data into the training
+# - why is y[t] != to x[t-1]?
 
 
 # physical_devices = tf.config.list_physical_devices('GPU')
@@ -15,6 +26,7 @@ import random
 
 def read_data(folder_loc, features, predicted_feature, type_of_data):
     """
+    :param type_of_data:
     :param predicted_feature: parameter that is going to be predicted
     :param features: parameters that are going to be used to fit the model
     :param folder_loc: path of the folder with all 3 data in the computer
@@ -66,87 +78,58 @@ def createTimeWindows(data, timestamp_size):
     :param data: training data
     :return: (nr_data_samples-window_length, window_length, nr_features)
     """
+
+    data_x = []
+    data_y = []
+    for i in range(timestamp_size, (len(data) - 1)):
+        data_x.append(data[i - timestamp_size:i, :data.shape[1] - 1])
+        data_y.append(data[i, -1])
+
+    return np.array(data_x), np.array(data_y)
+
+    # shape = (data.shape[0] - timestamp_size + 1, timestamp_size, data.shape[1])
+    # t_minus_window_data = np.empty(shape)
+    # timestamp_data = deque(maxlen=timestamp_size)
     #
-    shape = (data.shape[0] - timestamp_size + 1, timestamp_size, data.shape[1])
-    t_minus_window_data = np.empty(shape)
-    timestamp_data = deque(maxlen=timestamp_size)
+    # counter = 0
+    # for i in data.values:  # iterate over the values
+    #     timestamp_data.append([n for n in i])  # store all but the target
+    #     if len(timestamp_data) == timestamp_size:
+    #         # suffled_timestamp = random.sample(timestamp_data, len(timestamp_data))
+    #         suffled_timestamp = timestamp_data
+    #         t_minus_window_data[counter] = np.array(suffled_timestamp)
+    #         counter += 1
 
-    counter = 0
-    for i in data.values:  # iterate over the values
-        timestamp_data.append([n for n in i])  # store all but the target
-        if len(timestamp_data) == timestamp_size:
-            suffled_timestamp = random.sample(timestamp_data, len(timestamp_data))
-            t_minus_window_data[counter] = np.array(suffled_timestamp)
-            counter += 1
-
-    return t_minus_window_data
+    # return t_minus_window_data[:-2,:,:]
 
 
 def data_labeling(data, features, timestamp_size, testing_size=None):
-    x_data = createTimeWindows(data[features], timestamp_size=timestamp_size)
-    y_data = data[['value_to_predict']].to_numpy()
-
     if testing_size is not None:
-        validation_x = x_data[:x_data.shape[0] - testing_size, :, :]
-        validation_y = y_data[timestamp_size - 1:y_data.shape[0] - testing_size, :]
-        test_x = validation_x[-testing_size:, :, :]
-        test_y = validation_y[-testing_size:, :]
+        x, y = createTimeWindows(data, timestamp_size=timestamp_size)
+        validation_x = x[:-testing_size]
+        validation_y = y[:-testing_size]
+        test_x = x[-testing_size:]
+        test_y = y[-testing_size:]
         return (validation_x, validation_y), (test_x, test_y)
     else:
-        return x_data, y_data[timestamp_size - 1:]
+        train_x, train_y = createTimeWindows(data, timestamp_size=timestamp_size)
+        return train_x, train_y
 
 
-def plot_time_series(data, time_range, variable):
-    plt.figure(figsize=(18, 9))
-    if len(variable) == 2:
-        plt.plot(range(data.shape[0]), (data[variable[0]] + data[variable[1]]) / 2.0)
-        y_label = 'Mid price'
-    if len(variable) == 1:
-        plt.plot(range(data.shape[0]), (data[variable[0]]) / 2.0)
-        y_label = variable[0]
-    plt.xticks(range(0, data.shape[0], time_range), data['time'].loc[::time_range], rotation=45)
-    plt.xlabel('time', fontsize=18)
-    plt.ylabel(y_label, fontsize=18)
-    plt.show()
-
-
-def create_lstm_model(data):
+def create_lstm_model(data, num_features):
     model = Sequential()
-    model.add(LSTM(units=50, return_sequences=True, input_shape=(data.shape[1:])))
+    model.add(LSTM(units=50, return_sequences=True, input_shape=(data.shape[1], num_features)))
     model.add(Dropout(0.2))
-
     model.add(LSTM(units=50, return_sequences=True))
     model.add(Dropout(0.2))
-
     model.add(LSTM(units=50, return_sequences=True))
     model.add(Dropout(0.2))
-
     model.add(LSTM(units=50))
     model.add(Dropout(0.2))
-
     model.add(Dense(units=1))
-    model.compile(optimizer='adam', loss='mean_squared_error', metrics=[
-        metrics.MeanSquaredError()
-    ])
+
+    model.compile(optimizer='adam', loss='mean_squared_error')
     return model
-    # model = Sequential()
-    # model.add(LSTM(128, input_shape=(data.shape[1:]), return_sequences=True))
-    # model.add(Dropout(0.2))
-    # model.add(BatchNormalization())  #normalizes activation outputs, same reason you want to normalize your input data.
-    #
-    # model.add(LSTM(128, return_sequences=True))
-    # model.add(Dropout(0.1))
-    # model.add(BatchNormalization())
-    #
-    # model.add(LSTM(128))
-    # model.add(Dropout(0.2))
-    # model.add(BatchNormalization())
-    #
-    # model.add(Dense(32, activation='relu'))
-    # model.add(Dropout(0.2))
-    # opt = tf.keras.optimizers.Adam(lr=0.001, decay=1e-6)
-    # model.compile(optimizer=opt, loss='mean_squared_error', metrics=["accuracy"])
-    # return model
 
 
 def plot_loss(history):
@@ -165,34 +148,39 @@ def plot_predict(real, predicted):
     plt.plot(real, color='blue', label='Bitcoin')
     plt.plot(predicted, color='red', label='Predicted Bitcoin')
     plt.xlabel('Time: Hourly ')
-    plt.ylabel('Bitcoin Market price')
+    plt.ylabel('Bitcoin Market price in 0-1 scale')
     plt.legend()
     plt.show()
 
 
 def main():
+    epochs = 3
+    batch_size = 128
+    timeWindow = 72
+    testing_samples = 1000
+    features = ['volumetoNorm']
     predicted_feature = 'midPriceNorm'
-    timestamp_size = 20
-    features = ['volumefromNorm']
-    df = read_data(folder_loc="../PreProcessing/cleaned_data", features=features, predicted_feature=predicted_feature,
-                   type_of_data='complete')
-    # features = ['volumefromNorm', 'volumetoNorm', 'redditPostsNorm', 'fbTalkingNorm', 'pageViewsNorm',
-    #             'redditCommentsNorm']
-    # df = read_data(folder_loc="../PreProcessing/cleaned_data_socialMedia", features=features,
-    #                predicted_feature=predicted_feature,
-    #                type_of_data="socialMedia")
-    # plot_time_series(data=df['complete'], time_range=500, variable=['midPriceNorm'])
-    x_train, y_train = data_labeling(data=df["training_set"], features=features, timestamp_size=timestamp_size,
+
+    total_features = copy.deepcopy(features)
+    total_features.append(predicted_feature)
+    number_features = len(total_features)
+
+    df = read_data("PreProcessing/cleaned_data", features=features, predicted_feature=predicted_feature,
+                   type_of_data="complete")
+
+    train_x, train_y = data_labeling(data=np.array(df["training_set"]), features=total_features,
+                                     timestamp_size=timeWindow,
                                      testing_size=None)
-    validation_data, testing_data = data_labeling(data=df["validation_set"], features=features,
-                                                  timestamp_size=timestamp_size, testing_size=10)
 
-    model = create_lstm_model(data=x_train)
-    training_history = model.fit(x_train, y_train, epochs=5, batch_size=32, validation_data=validation_data)
-    plot_loss(training_history)
+    (validation_x, validation_y), (test_x, test_y) = data_labeling(data=np.array(df["validation_set"]),
+                                                                   features=total_features, timestamp_size=timeWindow,
+                                                                   testing_size=testing_samples)
 
-    y_predicted = model.predict(testing_data[0])
-    plot_predict(testing_data[1], y_predicted)
+    regressor = create_lstm_model(data=train_x, num_features=number_features)
+    regressor.fit(train_x, train_y, epochs=epochs, batch_size=batch_size)
+    predicted_testing_data = regressor.predict(test_x)
+
+    plot_predict(test_y, predicted_testing_data)
 
 
 if __name__ == "__main__":
