@@ -88,17 +88,12 @@ def createTimeWindows(data, timestamp_size, is_predict_multiple):
     data_x = []
     data_y = []
     for i in range(timestamp_size, (len(data) - 1)):
-        data_x.append(data[i - timestamp_size:i, :data.shape[
-                                                      1] - 1])  # TODO Here we specify -1 to remove time but actually we loose the last feature
+        data_x.append(data[i - timestamp_size:i, :data.shape[1] - 1])
         if is_predict_multiple:
             data_y.append(data[i, :data.shape[1] - 1])
         else:
-            data_y.append(data[i])
-    # Takes two list and shuffles them together in order
-    zipped = list(zip(data_x, data_y))
-    random.shuffle(zipped)
-    data_x_shuffled, data_y_shuffled = zip(*zipped)
-    return np.array(data_x_shuffled), np.array(data_y_shuffled)
+            data_y.append(data[i, -1])
+    return np.array(data_x), np.array(data_y)
 
 
 def data_labeling(data, features, timestamp_size, testing_size=None, predict_multiple_features=False):
@@ -176,10 +171,10 @@ def plot_predict(real, predicted, plot_all=False):
             plt.plot(predicted[:, 0], color='red', label='Predicted Bitcoin')
         else:
             plt.plot(predicted, color='red', label='Predicted Bitcoin')
-        if real.shape[1] > 1:
-            plt.plot(real[:, 0], color='blue', label='Bitcoin')
-        else:
-            plt.plot(real, color='blue', label='Bitcoin')
+        # if real.shape[1] > 1:
+        #     plt.plot(real[:, 0], color='blue', label='Bitcoin')
+        # else:
+        plt.plot(real, color='blue', label='Bitcoin')
     plt.xlabel('Time: Hourly ')
     plt.ylabel('Bitcoin Market price on 0-1 scale')
     plt.legend()
@@ -190,20 +185,22 @@ def plot_predict(real, predicted, plot_all=False):
 def main():
     epochs = 1
     batch_size = 128
-    timeWindow = 7
+    timeWindow = 24
     testing_samples = 100
-    features = ['volumetoNorm', 'pageViewsNorm', 'fbTalkingNorm', 'redditPostsNorm', 'redditCommentsNorm']
+    # features = ['volumetoNorm', 'pageViewsNorm', 'fbTalkingNorm', 'redditPostsNorm', 'redditCommentsNorm']
+    # features = ['volumetoNorm']
+    features = []
     predicted_feature = 'midPriceNorm'
-    predict_multiple_features = False
+    predict_multiple_features = True
 
     total_features = copy.deepcopy(features)
     total_features.append(predicted_feature)
     number_features = len(total_features)
 
-    # df = read_data("../PreProcessing/cleaned_data", features=features, predicted_feature=predicted_feature,
-    #                type_of_data="complete")
-    df = read_data("../PreProcessing/cleaned_data_socialMedia", features=features, predicted_feature=predicted_feature,
-                   type_of_data="socialMedia")
+    df = read_data("../PreProcessing/cleaned_data", features=features, predicted_feature=predicted_feature,
+                   type_of_data="complete")
+    # df = read_data("../PreProcessing/cleaned_data_socialMedia", features=features, predicted_feature=predicted_feature,
+    #                type_of_data="socialMedia")
 
     # plot_parameter(df['training_set'], predicted_feature)
 
@@ -223,7 +220,7 @@ def main():
 
     # Predicts n step into future. Only works when we have the same number of feature inputs as output
     if predict_multiple_features:
-        predicted_sequence = forecast(regressor, test_x[timeWindow:], steps_into_future=testing_samples)
+        predicted_sequence = forecast(regressor, test_x[timeWindow:], steps_into_future=100)
         plot_predict(test_y, predicted_sequence, plot_all=False)
 
     # Predicts one step on each row in batch
