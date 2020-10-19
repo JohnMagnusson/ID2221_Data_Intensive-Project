@@ -30,7 +30,7 @@ class Client:
 
         print("Getting data with the set window")
         for windowSetting in tqdm(windowsSettings):
-            dataBatches.extend(self.getHistoricalData(requestParameters.timePrefix, requestParameters.cryptoCurrency,
+            dataBatches.append(self.getHistoricalData(requestParameters.timePrefix, requestParameters.cryptoCurrency,
                                                       requestParameters.fiatCurrency, windowSetting[0],
                                                       windowSetting[1]))
         print("Done fetching data!")
@@ -52,7 +52,7 @@ class Client:
 
         print("Getting data with the set window")
         for windowSetting in tqdm(windowsSettings):
-            dataBatches.extend(
+            dataBatches.append(
                 self.getHistoricalSocialData(requestParameters.timePrefix, requestParameters.cryptoCurrency,
                                              windowSetting[0], windowSetting[1]))
         print("Done fetching data!")
@@ -132,7 +132,7 @@ class Client:
         isProcessedCorrectly, errorMessage = self.validateGoodHttpResponse(response.status_code)
         if not isProcessedCorrectly:
             raise Exception(errorMessage)
-        response_data = json.loads(response.content)['Data']['Data']
+        response_data = json.loads(response.content)#['Data']['Data']
         return response_data
 
     def getHistoricalSocialData(self, timePrefix="hour", cryptoCurrency="BTC", toTimeStamp=-1, nrRecordsToGet=10):
@@ -159,7 +159,7 @@ class Client:
         isProcessedCorrectly, errorMessage = self.isRequestProcessedCorrectly(response.status_code, response.content)
         if not isProcessedCorrectly:
             raise Exception(errorMessage)
-        response_data = json.loads(response.content)['Data']
+        response_data = json.loads(response.content)
         return response_data
 
     def isRequestProcessedCorrectly(self, statusCode, content):
