@@ -16,14 +16,6 @@ tensorflow.random.set_seed(12)
 np.random.seed(12)
 random.seed(12)
 
-## TODO:
-# - In the createTimeWindows removes the last feature. Previous it was time but now it can be anything so we need to fix this
-# - There is a nan in the test or validation data, do we need to fix it? If how, remove or add values? (I saw this in the social data)
-# - When predicting multiple features and we only want to plot one of them it is kinda wonky. Do we care?
-# - why is y[t] != to x[t-1]?
-# - try to predict mid price [t] without mid price [t-1, -2, ...]
-
-
 # Allows to run on GPU if available
 physical_devices = tf.config.list_physical_devices('GPU')
 if len(physical_devices) > 0:
@@ -80,6 +72,7 @@ def read_data(folder_loc, features, predicted_feature, type_of_data):
 def createTimeWindows(data, timestamp_size, is_predict_multiple):
     """
     We should consider the the previous data when predicting. In this case with a window_length size
+    :param is_predict_multiple: A flag, if we want to predict multiple features or nor
     :param timestamp_size: How many previous data to consider
     :param data: training data
     :return: (nr_data_samples-window_length, window_length, nr_features)
@@ -111,6 +104,14 @@ def data_labeling(data, features, timestamp_size, testing_size=None, predict_mul
 
 
 def create_lstm_model(data, num_features, is_predict_multiple=False):
+    """
+    Creates a simple LSTM model
+    :param data: The data to get the input shape from
+    :param num_features: Features that the data have or will predict if is_predict_multiple flag is true
+    :param is_predict_multiple: Flag, if the model should predict multiple features
+    :return:
+    """
+
     model = Sequential()
     model.add(LSTM(units=50, return_sequences=True, input_shape=(data.shape[1], num_features)))
     model.add(Dropout(0.2))
@@ -136,9 +137,14 @@ def plot_parameter(data, parameter):
 
 
 def plot_loss(history):
+    """
+    Plots loss from training
+    :param history: Loss dict
+    :return:
+    """
+
     plt.plot(history.history['loss'], label='loss')
     plt.plot(history.history['val_loss'], label='validation loss')
-    # plt.ylim([0, 10])
     plt.xlabel('Epoch')
     plt.ylabel('Error [MSE]')
     plt.legend()
@@ -147,6 +153,14 @@ def plot_loss(history):
 
 
 def forecast(model, from_data_sequence, steps_into_future):
+    """
+    Forecast the value of the cryptocurrency steps_into_future
+    :param model: The trained model used to make the forecast
+    :param from_data_sequence: The data sequence data the network will make the forecast from
+    :param steps_into_future: How many steps into the future the forecast should have
+    :return: An numpy array with the prediction into the future
+    """
+
     predicted_sequence = []
     data_sequence = from_data_sequence[-1]
     window_length = from_data_sequence.shape[1]
@@ -162,6 +176,14 @@ def forecast(model, from_data_sequence, steps_into_future):
 
 
 def plot_predict(real, predicted, plot_all=False):
+    """
+    Plots the prediction and real value in a graph
+    :param real: The ground truth how the value
+    :param predicted: The predicted value
+    :param plot_all: If we should plot all predicted values if there are more than one
+    :return:
+    """
+
     plt.figure(figsize=(20, 10))
     if plot_all:
         plt.plot(real, color='blue', label='Bitcoin')
@@ -183,15 +205,15 @@ def plot_predict(real, predicted, plot_all=False):
 
 
 def main():
-    epochs = 1
-    batch_size = 128
-    timeWindow = 24
-    testing_samples = 100
+    epochs = 1  # Number of epochs to do during training
+    batch_size = 128  # batch size for training
+    timeWindow = 24  # How many time units will be used to make an prediction
+    testing_samples = 100  # The number of samples to predict on
     # features = ['volumetoNorm', 'pageViewsNorm', 'fbTalkingNorm', 'redditPostsNorm', 'redditCommentsNorm']
     # features = ['volumetoNorm']
-    features = []
-    predicted_feature = 'midPriceNorm'
-    predict_multiple_features = True
+    features = []  # The features the model will use to make an prediction
+    predicted_feature = 'midPriceNorm'  # The feature that we want to predict
+    predict_multiple_features = True  # If we want to predict multiple features, if so input features = output features
 
     total_features = copy.deepcopy(features)
     total_features.append(predicted_feature)
@@ -204,18 +226,23 @@ def main():
 
     # plot_parameter(df['training_set'], predicted_feature)
 
+    # Get training data
     train_x, train_y = data_labeling(data=np.array(df["training_set"]), features=total_features,
                                      timestamp_size=timeWindow,
                                      testing_size=None,
                                      predict_multiple_features=predict_multiple_features)
 
+    # Get validation and test data
     validation, (test_x, test_y) = data_labeling(data=np.array(df["validation_set"]),
                                                  features=total_features, timestamp_size=timeWindow,
                                                  testing_size=testing_samples,
                                                  predict_multiple_features=predict_multiple_features)
 
+    # Create the model
     regressor = create_lstm_model(data=train_x, num_features=number_features,
                                   is_predict_multiple=predict_multiple_features)
+
+    # Train the model
     regressor.fit(train_x, train_y, epochs=epochs, batch_size=batch_size, validation_data=validation, shuffle=True)
 
     # Predicts n step into future. Only works when we have the same number of feature inputs as output
