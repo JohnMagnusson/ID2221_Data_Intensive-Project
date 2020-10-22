@@ -16,12 +16,12 @@ def main():
     if get_trading_data:
         historicalDataRequest = HistoricalDataRequest(timePrefix="hour", cryptoCurrency="BTC", fiatCurrency="USD")
         dataList = dataClient.getHistoricalDataBetween(historicalDataRequest, startTime, endTime)
-        saveData(dataList, fileName="bitcoin_max_raw", format="json")
+        saveData(dataList, fileName="bitcoin_trading_data", format="json")
 
     if get_social_data:
         historicalSocialDataRequest = HistoricalSocialDataRequest(timePrefix="hour", cryptoCurrency="BTC")
         dataList = dataClient.getHistoricalSocialDataBetween(historicalSocialDataRequest, startTime, endTime)
-        saveData(dataList, fileName="bitcoin_social_max_raw", format="json")
+        saveData(dataList, fileName="bitcoin_social_data", format="json")
 
 
 if __name__ == "__main__":
