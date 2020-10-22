@@ -8,7 +8,7 @@ import pandas as pd
 import tensorflow
 import tensorflow as tf
 from matplotlib import pyplot as plt
-from tensorflow.keras.layers import LSTM, Dropout, Dense
+from tensorflow.keras.layers import LSTM, Dropout, Dense, BatchNormalization
 from tensorflow.keras.metrics import MeanSquaredError
 from tensorflow.keras.models import Sequential
 
@@ -115,10 +115,13 @@ def create_lstm_model(data, num_features, is_predict_multiple=False):
     model = Sequential()
     model.add(LSTM(units=50, return_sequences=True, input_shape=(data.shape[1], num_features)))
     model.add(Dropout(0.2))
+    model.add(BatchNormalization())
     model.add(LSTM(units=50, return_sequences=True))
     model.add(Dropout(0.2))
+    model.add(BatchNormalization())
     model.add(LSTM(units=50, return_sequences=True))
     model.add(Dropout(0.2))
+    model.add(BatchNormalization())
     model.add(LSTM(units=50))
     model.add(Dropout(0.2))
     if is_predict_multiple:
@@ -190,13 +193,13 @@ def plot_predict(real, predicted, plot_all=False):
         plt.plot(predicted, color='red', label='Predicted Bitcoin')
     else:
         if predicted.shape[1] > 1:
-            plt.plot(predicted[:, 0], color='red', label='Predicted Bitcoin')
+            plt.plot(predicted[:, -1], color='red', label='Predicted Bitcoin')
         else:
             plt.plot(predicted, color='red', label='Predicted Bitcoin')
-        # if real.shape[1] > 1:
-        #     plt.plot(real[:, 0], color='blue', label='Bitcoin')
-        # else:
-        plt.plot(real, color='blue', label='Bitcoin')
+        if real.shape[1] > 1:
+            plt.plot(real[:, -1], color='blue', label='Bitcoin')
+        else:
+            plt.plot(real, color='blue', label='Bitcoin')
     plt.xlabel('Time: Hourly ')
     plt.ylabel('Bitcoin Market price on 0-1 scale')
     plt.legend()
@@ -205,13 +208,13 @@ def plot_predict(real, predicted, plot_all=False):
 
 
 def main():
-    epochs = 1  # Number of epochs to do during training
+    epochs = 10  # Number of epochs to do during training
     batch_size = 128  # batch size for training
     timeWindow = 24  # How many time units will be used to make an prediction
-    testing_samples = 100  # The number of samples to predict on
-    # features = ['volumetoNorm', 'pageViewsNorm', 'fbTalkingNorm', 'redditPostsNorm', 'redditCommentsNorm']
+    testing_samples = 500  # The number of samples to predict on
+    features = ['volumetoNorm', 'pageViewsNorm', 'fbTalkingNorm', 'redditPostsNorm', 'redditCommentsNorm']
     # features = ['volumetoNorm']
-    features = []  # The features the model will use to make an prediction
+    # features = []  # The features the model will use to make an prediction
     predicted_feature = 'midPriceNorm'  # The feature that we want to predict
     predict_multiple_features = True  # If we want to predict multiple features, if so input features = output features
 
@@ -219,10 +222,10 @@ def main():
     total_features.append(predicted_feature)
     number_features = len(total_features)
 
-    df = read_data("../PreProcessing/cleaned_data", features=features, predicted_feature=predicted_feature,
-                   type_of_data="complete")
-    # df = read_data("../PreProcessing/cleaned_data_socialMedia", features=features, predicted_feature=predicted_feature,
-    #                type_of_data="socialMedia")
+    # df = read_data("../PreProcessing/cleaned_data", features=features, predicted_feature=predicted_feature,
+    #                type_of_data="complete")
+    df = read_data("../PreProcessing/cleaned_data_socialMedia", features=features, predicted_feature=predicted_feature,
+                   type_of_data="socialMedia")
 
     # plot_parameter(df['training_set'], predicted_feature)
 
@@ -243,11 +246,13 @@ def main():
                                   is_predict_multiple=predict_multiple_features)
 
     # Train the model
-    regressor.fit(train_x, train_y, epochs=epochs, batch_size=batch_size, validation_data=validation, shuffle=True)
+    history = regressor.fit(train_x, train_y, epochs=epochs, batch_size=batch_size, validation_data=validation, shuffle=True)
+
+    plot_loss(history)
 
     # Predicts n step into future. Only works when we have the same number of feature inputs as output
     if predict_multiple_features:
-        predicted_sequence = forecast(regressor, test_x[timeWindow:], steps_into_future=100)
+        predicted_sequence = forecast(regressor, test_x[timeWindow:], steps_into_future=500)
         plot_predict(test_y, predicted_sequence, plot_all=False)
 
     # Predicts one step on each row in batch
